@@ -1,0 +1,178 @@
+name: Docker Build & Push
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  # 사용자 이름이 이미 소문자이므로 github.repository를 바로 사용합니다.
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        service: [backend, frontend]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Log in to Container Registry
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha
+          # Add latest tag for default branch
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      timeout-minutes: 20
+      continue-on-error: true
+      id: build-attempt-1
+      with:
+        context: ./${{ matrix.service }}
+        file: ./${{ matrix.service }}/Dockerfile
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+        build-args: |
+          ${{ matrix.service == 'frontend' && 'VITE_API_URL=http://localhost:3000' || '' }}
+        provenance: false
+
+    # Retry build if first attempt failed
+    - name: Retry build and push Docker image
+      if: steps.build-attempt-1.outcome == 'failure'
+      uses: docker/build-push-action@v5
+      timeout-minutes: 20
+      with:
+        context: ./${{ matrix.service }}
+        file: ./${{ matrix.service }}/Dockerfile
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+        build-args: |
+          ${{ matrix.service == 'frontend' && 'VITE_API_URL=http://localhost:3000' || '' }}
+        provenance: false
+
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.event_name != 'pull_request' && needs.build-and-push.result == 'success'
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Run integration tests with built images
+      run: |
+        echo "Starting integration test with local docker-compose..."
+        
+        # Use the existing docker-compose.yml but override images
+        export BACKEND_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:${{ github.sha }}"
+        export FRONTEND_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:${{ github.sha }}"
+        
+        # Try to pull images, fallback to latest if not found
+        docker pull $BACKEND_IMAGE || docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:latest && export BACKEND_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:latest"
+        docker pull $FRONTEND_IMAGE || docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:latest && export FRONTEND_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:latest"
+        
+        echo "Using backend image: $BACKEND_IMAGE"
+        echo "Using frontend image: $FRONTEND_IMAGE"
+        
+        # Start services
+        BACKEND_IMAGE=$BACKEND_IMAGE FRONTEND_IMAGE=$FRONTEND_IMAGE docker compose up -d
+        
+        # Wait for services
+        echo "Waiting for services to be ready..."
+        timeout 120s bash -c 'until curl -f http://localhost:3000/health; do echo "Waiting for backend..."; sleep 5; done'
+        timeout 120s bash -c 'until curl -f http://localhost:80; do echo "Waiting for frontend..."; sleep 5; done'
+        
+        # Run tests
+        echo "Running integration tests..."
+        curl -f http://localhost:3000/api/test
+        curl -f http://localhost:3000/health
+        curl -f http://localhost:80
+        
+        echo "✅ Integration tests completed successfully!"
+        
+        # Cleanup
+        docker compose down
+
+  deploy-to-oracle:
+    runs-on: ubuntu-latest
+    needs: [build-and-push, integration-test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Deploy to Oracle Cloud
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.ORACLE_HOST }}
+        username: ${{ secrets.ORACLE_USERNAME }}
+        key: ${{ secrets.ORACLE_SSH_KEY }}
+        port: ${{ secrets.ORACLE_PORT || 22 }}
+        script: |
+          # 배포 디렉토리가 없으면 생성
+          if [ ! -d "~/uscola-deploy" ]; then
+            mkdir -p ~/uscola-deploy
+            cd ~/uscola-deploy
+            git clone https://github.com/${{ github.repository }}.git uscola
+          fi
+          
+          # 배포 디렉토리로 이동
+          cd ~/uscola-deploy/uscola
+          git pull origin main
+          cd deploy
+          
+          # 실행 권한 부여
+          chmod +x deploy.sh
+          
+          # 환경 변수 설정 및 배포 실행
+          export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          export GITHUB_ACTOR=${{ github.actor }}
+          export GITHUB_REPOSITORY=${{ github.repository }}
+          ./deploy.sh
