@@ -1,13 +1,20 @@
 import React, { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { apiService } from '../services/api'
+import { useAuth } from '../contexts/AuthContext'
 import { Collaboration } from '../types'
 
 const CollabDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const { user } = useAuth()
   const [collab, setCollab] = useState<Collaboration | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const fetchCollab = async () => {
@@ -24,6 +31,24 @@ const CollabDetail: React.FC = () => {
     fetchCollab()
   }, [id])
 
+  const handleDelete = async () => {
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      const headers: Record<string, string> = {}
+      if (!user && deletePassword) {
+        headers['x-guest-password'] = deletePassword
+      }
+      await apiService.delete(`/collaborations/${id}`, { headers })
+      navigate('/collabs')
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } } }
+      setDeleteError(error.response?.data?.error || '삭제에 실패했습니다.')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center py-20">
@@ -35,7 +60,9 @@ const CollabDetail: React.FC = () => {
   if (error || !collab) {
     return (
       <div className="text-center py-20">
-        <p className="text-gray-500 mb-4">{error || '콜라보를 찾을 수 없습니다.'}</p>
+        <p className="text-gray-500 mb-4">
+          {error || '콜라보를 찾을 수 없습니다.'}
+        </p>
         <Link to="/collabs" className="text-blue-600 hover:underline">
           &larr; 목록으로 돌아가기
         </Link>
@@ -54,6 +81,11 @@ const CollabDetail: React.FC = () => {
         day: 'numeric',
       })
     : null
+
+  // 회원 본인 글이거나, 비회원 글(guest_password_hash가 있는)이면 삭제 가능
+  const isOwner = user && collab.submitted_by === user.id
+  const isGuestPost = !collab.submitted_by
+  const canDelete = isOwner || isGuestPost
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
@@ -91,9 +123,19 @@ const CollabDetail: React.FC = () => {
           )}
         </div>
 
-        <h1 className="text-3xl font-extrabold text-gray-900">
-          {collab.title}
-        </h1>
+        <div className="flex items-start justify-between">
+          <h1 className="text-3xl font-extrabold text-gray-900">
+            {collab.title}
+          </h1>
+          {canDelete && (
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="text-sm text-red-500 hover:text-red-700 transition-colors shrink-0 ml-4"
+            >
+              삭제
+            </button>
+          )}
+        </div>
 
         {/* Brands */}
         <div className="flex items-center gap-4">
@@ -155,6 +197,60 @@ const CollabDetail: React.FC = () => {
           </a>
         )}
       </div>
+
+      {/* Delete Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm mx-4 shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">
+              콜라보 삭제
+            </h3>
+
+            {isOwner ? (
+              <p className="text-sm text-gray-600 mb-4">
+                이 콜라보를 정말 삭제하시겠습니까?
+              </p>
+            ) : (
+              <div className="space-y-3 mb-4">
+                <p className="text-sm text-gray-600">
+                  등록 시 설정한 비밀번호를 입력해주세요.
+                </p>
+                <input
+                  type="password"
+                  value={deletePassword}
+                  onChange={e => setDeletePassword(e.target.value)}
+                  placeholder="비밀번호"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                />
+              </div>
+            )}
+
+            {deleteError && (
+              <p className="text-sm text-red-600 mb-3">{deleteError}</p>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false)
+                  setDeletePassword('')
+                  setDeleteError(null)
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting || (!isOwner && !deletePassword)}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {deleting ? '삭제 중...' : '삭제'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

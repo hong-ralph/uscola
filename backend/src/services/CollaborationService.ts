@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs'
 import { supabase } from '../config/supabase'
 import { Collaboration, PaginatedResponse } from '../types'
 
@@ -9,6 +10,24 @@ interface CollaborationQuery {
   sort?: string
 }
 
+interface CreateCollaborationInput {
+  title: string
+  description?: string
+  brand_a_id: number
+  brand_b_id: number
+  category?: string
+  image_url?: string
+  release_date?: string
+  source_url?: string
+  status?: string
+  submitted_by?: string
+  guest_nickname?: string
+  guest_password?: string
+}
+
+const COLLAB_SELECT =
+  '*, brand_a:brands!brand_a_id(*), brand_b:brands!brand_b_id(*)'
+
 export class CollaborationService {
   async getCollaborations(
     query: CollaborationQuery
@@ -19,10 +38,7 @@ export class CollaborationService {
 
     let baseQuery = supabase
       .from('collaborations')
-      .select(
-        '*, brand_a:brands!brand_a_id(*), brand_b:brands!brand_b_id(*)',
-        { count: 'exact' }
-      )
+      .select(COLLAB_SELECT, { count: 'exact' })
       .eq('status', 'published')
 
     if (query.category) {
@@ -75,9 +91,7 @@ export class CollaborationService {
   async getCollaborationById(id: number): Promise<Collaboration | null> {
     const { data, error } = await supabase
       .from('collaborations')
-      .select(
-        '*, brand_a:brands!brand_a_id(*), brand_b:brands!brand_b_id(*)'
-      )
+      .select(COLLAB_SELECT)
       .eq('id', id)
       .eq('status', 'published')
       .single()
@@ -91,25 +105,36 @@ export class CollaborationService {
   }
 
   async createCollaboration(
-    collab: Partial<Collaboration>
+    input: CreateCollaborationInput
   ): Promise<Collaboration> {
+    const insertData: Record<string, unknown> = {
+      title: input.title,
+      description: input.description,
+      brand_a_id: input.brand_a_id,
+      brand_b_id: input.brand_b_id,
+      category: input.category,
+      image_url: input.image_url,
+      release_date: input.release_date,
+      source_url: input.source_url,
+      status: input.status || 'published',
+    }
+
+    if (input.submitted_by) {
+      insertData.submitted_by = input.submitted_by
+    }
+
+    if (input.guest_password) {
+      insertData.guest_password_hash = await bcrypt.hash(
+        input.guest_password,
+        10
+      )
+      insertData.guest_nickname = input.guest_nickname || '익명'
+    }
+
     const { data, error } = await supabase
       .from('collaborations')
-      .insert({
-        title: collab.title,
-        description: collab.description,
-        brand_a_id: collab.brand_a_id,
-        brand_b_id: collab.brand_b_id,
-        category: collab.category,
-        image_url: collab.image_url,
-        release_date: collab.release_date,
-        source_url: collab.source_url,
-        status: collab.status || 'published',
-        submitted_by: collab.submitted_by,
-      })
-      .select(
-        '*, brand_a:brands!brand_a_id(*), brand_b:brands!brand_b_id(*)'
-      )
+      .insert(insertData)
+      .select(COLLAB_SELECT)
       .single()
 
     if (error) throw error
@@ -134,9 +159,7 @@ export class CollaborationService {
         status: collab.status,
       })
       .eq('id', id)
-      .select(
-        '*, brand_a:brands!brand_a_id(*), brand_b:brands!brand_b_id(*)'
-      )
+      .select(COLLAB_SELECT)
       .single()
 
     if (error) {
@@ -155,5 +178,30 @@ export class CollaborationService {
 
     if (error) throw error
     return (count || 0) > 0
+  }
+
+  // 권한 체크: 회원이면 submitted_by, 비회원이면 비밀번호 검증
+  async verifyOwnership(
+    id: number,
+    userId?: string,
+    guestPassword?: string
+  ): Promise<boolean> {
+    const { data, error } = await supabase
+      .from('collaborations')
+      .select('submitted_by, guest_password_hash')
+      .eq('id', id)
+      .single()
+
+    if (error || !data) return false
+
+    // 회원: submitted_by 일치 확인
+    if (userId && data.submitted_by === userId) return true
+
+    // 비회원: 비밀번호 확인
+    if (guestPassword && data.guest_password_hash) {
+      return bcrypt.compare(guestPassword, data.guest_password_hash)
+    }
+
+    return false
   }
 }

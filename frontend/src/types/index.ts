@@ -18,6 +18,8 @@ export interface Collaboration {
   release_date: string | null
   source_url: string | null
   status: string
+  submitted_by: string | null
+  guest_nickname: string | null
   created_at: string
   updated_at: string
   brand_a?: Brand

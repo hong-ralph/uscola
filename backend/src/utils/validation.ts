@@ -11,6 +11,8 @@ export const CreateCollaborationSchema = Joi.object({
   source_url: Joi.string().uri().optional().allow('', null),
   status: Joi.string().valid('draft', 'pending', 'published').optional(),
   submitted_by: Joi.string().uuid().optional().allow(null),
+  guest_nickname: Joi.string().max(30).optional().allow('', null),
+  guest_password: Joi.string().min(4).max(20).optional(),
 })
 
 export const UpdateCollaborationSchema = Joi.object({
