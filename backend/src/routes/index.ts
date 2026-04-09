@@ -1,18 +1,18 @@
-import { Router } from 'express';
-import userRoutes from './userRoutes';
+import { Router } from 'express'
+import collaborationRoutes from './collaborationRoutes'
+import brandRoutes from './brandRoutes'
 
-const router = Router();
+const router = Router()
 
-// API routes
-router.use('/users', userRoutes);
+router.use('/collaborations', collaborationRoutes)
+router.use('/brands', brandRoutes)
 
-// Test route
 router.get('/test', (_req, res) => {
   res.json({
     success: true,
-    message: 'API is working!',
-    timestamp: new Date().toISOString()
-  });
-});
+    message: 'uscola API is working!',
+    timestamp: new Date().toISOString(),
+  })
+})
 
-export default router;
+export default router

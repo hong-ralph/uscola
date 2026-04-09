@@ -1,6 +1,3 @@
-import { Request } from 'express'
-
-// Brand
 export interface Brand {
   id: number
   name: string
@@ -10,7 +7,6 @@ export interface Brand {
   created_at: string
 }
 
-// Collaboration
 export interface Collaboration {
   id: number
   title: string
@@ -21,34 +17,15 @@ export interface Collaboration {
   image_url: string | null
   release_date: string | null
   source_url: string | null
-  status: 'draft' | 'pending' | 'published'
-  submitted_by: string | null
+  status: string
   created_at: string
   updated_at: string
   brand_a?: Brand
   brand_b?: Brand
-  like_count?: number
-  comment_count?: number
-}
-
-// API Response
-export interface ApiResponse<T = unknown> {
-  success: boolean
-  data?: T
-  message?: string
-  error?: string
-}
-
-// Pagination
-export interface PaginationQuery {
-  page?: number
-  limit?: number
-  category?: string
-  brand?: string
-  sort?: 'latest' | 'oldest' | 'popular'
 }
 
 export interface PaginatedResponse<T> {
+  success: boolean
   data: T[]
   pagination: {
     page: number
@@ -58,7 +35,9 @@ export interface PaginatedResponse<T> {
   }
 }
 
-// Custom Request with user info
-export interface AuthenticatedRequest extends Request {
-  userId?: string
+export interface ApiResponse<T> {
+  success: boolean
+  data: T
+  message?: string
+  error?: string
 }

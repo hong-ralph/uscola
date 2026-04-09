@@ -1,7 +1,8 @@
 import { Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
 import Home from './pages/Home'
-import Users from './pages/Users'
+import Collabs from './pages/Collabs'
+import CollabDetail from './pages/CollabDetail'
 import './styles/App.css'
 
 function App() {
@@ -9,7 +10,8 @@ function App() {
     <Layout>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/users" element={<Users />} />
+        <Route path="/collabs" element={<Collabs />} />
+        <Route path="/collabs/:id" element={<CollabDetail />} />
       </Routes>
     </Layout>
   )

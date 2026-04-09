@@ -1,85 +1,83 @@
 import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { apiService } from '../services/api'
+import { Collaboration } from '../types'
+import CollabCard from '../components/CollabCard'
 
 const Home: React.FC = () => {
-  const [apiStatus, setApiStatus] = useState<string>('확인 중...')
+  const [collabs, setCollabs] = useState<Collaboration[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const checkApiStatus = async () => {
+    const fetchCollabs = async () => {
       try {
-        await apiService.get('/test')
-        setApiStatus('API 연결 성공! ✅')
-      } catch (error: any) {
-        setApiStatus('API 연결 실패 ❌')
-        console.error('API Error:', error)
-        console.error('API_BASE_URL:', import.meta.env.VITE_API_URL || 'Not set')
-        console.error('Current environment:', import.meta.env.MODE)
+        const response = await apiService.get('/collaborations?limit=6')
+        setCollabs(response.data.data)
+      } catch (err) {
+        console.error('Error fetching collaborations:', err)
+      } finally {
+        setLoading(false)
       }
     }
-
-    checkApiStatus()
+    fetchCollabs()
   }, [])
 
   return (
-    <div className="space-y-8">
-      {/* Hero Section */}
-      <div className="text-center">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">
-          Uscola에 오신 것을 환영합니다! 🎉
+    <div className="space-y-12">
+      {/* Hero */}
+      <div className="text-center py-12">
+        <h1 className="text-5xl font-extrabold text-gray-900 mb-4">
+          uscola
         </h1>
-        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-          Express + React + TypeScript 풀스택 애플리케이션
+        <p className="text-xl text-gray-500 max-w-xl mx-auto">
+          세상의 모든 콜라보를 한 곳에서
         </p>
       </div>
-      
-      {/* Status Card */}
-      <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-          시스템 상태
-        </h3>
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600">백엔드 API:</span>
-            <span className={`font-medium ${apiStatus.includes('성공') ? 'text-green-600' : apiStatus.includes('실패') ? 'text-red-600' : 'text-yellow-600'}`}>
-              {apiStatus}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600">프론트엔드:</span>
-            <span className="font-medium text-green-600">정상 작동 중 ✅</span>
-          </div>
+
+      {/* Recent Collabs */}
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">최신 콜라보</h2>
+          <Link
+            to="/collabs"
+            className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+          >
+            전체보기 &rarr;
+          </Link>
         </div>
+
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        ) : collabs.length === 0 ? (
+          <p className="text-center text-gray-500 py-12">
+            등록된 콜라보가 없습니다.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {collabs.map(collab => (
+              <CollabCard key={collab.id} collab={collab} />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Features Grid */}
-      <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">주요 기능</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-start space-x-3">
-            <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-            <span className="text-gray-700">TypeScript로 작성된 Express 백엔드</span>
-          </div>
-          <div className="flex items-start space-x-3">
-            <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-            <span className="text-gray-700">React + TypeScript 프론트엔드</span>
-          </div>
-          <div className="flex items-start space-x-3">
-            <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-            <span className="text-gray-700">REST API 구조</span>
-          </div>
-          <div className="flex items-start space-x-3">
-            <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-            <span className="text-gray-700">실시간 개발 환경</span>
-          </div>
-          <div className="flex items-start space-x-3">
-            <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-            <span className="text-gray-700">코드 품질 도구 (ESLint, Prettier)</span>
-          </div>
-          <div className="flex items-start space-x-3">
-            <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-            <span className="text-gray-700">Tailwind CSS UI 프레임워크</span>
-          </div>
+      {/* Category Quick Links */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">카테고리</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {['패션', '신발', 'F&B', '라이프스타일'].map(cat => (
+            <Link
+              key={cat}
+              to={`/collabs?category=${encodeURIComponent(cat)}`}
+              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center hover:shadow-md hover:border-blue-300 transition-all"
+            >
+              <span className="text-lg font-semibold text-gray-800">
+                {cat}
+              </span>
+            </Link>
+          ))}
         </div>
       </div>
     </div>
