@@ -1,5 +1,3 @@
-import { Request } from 'express'
-
 // Brand
 export interface Brand {
   id: number
@@ -27,27 +25,9 @@ export interface Collaboration {
   updated_at: string
   brand_a?: Brand
   brand_b?: Brand
-  like_count?: number
-  comment_count?: number
-}
-
-// API Response
-export interface ApiResponse<T = unknown> {
-  success: boolean
-  data?: T
-  message?: string
-  error?: string
 }
 
 // Pagination
-export interface PaginationQuery {
-  page?: number
-  limit?: number
-  category?: string
-  brand?: string
-  sort?: 'latest' | 'oldest' | 'popular'
-}
-
 export interface PaginatedResponse<T> {
   data: T[]
   pagination: {
@@ -56,9 +36,4 @@ export interface PaginatedResponse<T> {
     total: number
     totalPages: number
   }
-}
-
-// Custom Request with user info
-export interface AuthenticatedRequest extends Request {
-  userId?: string
 }

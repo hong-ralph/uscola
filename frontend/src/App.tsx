@@ -4,7 +4,6 @@ import Home from './pages/Home'
 import Collabs from './pages/Collabs'
 import CollabDetail from './pages/CollabDetail'
 import Submit from './pages/Submit'
-import './styles/App.css'
 
 function App() {
   return (
