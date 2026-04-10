@@ -1,0 +1,51 @@
+name: Quick Deploy (Native Build on Server)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Deploy via native build on server
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.ORACLE_HOST }}
+        username: ${{ secrets.ORACLE_USERNAME }}
+        key: ${{ secrets.ORACLE_SSH_KEY }}
+        port: ${{ secrets.ORACLE_PORT || 22 }}
+        command_timeout: 30m
+        script: |
+          set -e
+
+          SOURCE_DIR=~/uscola-source
+
+          # 소스 디렉토리 준비
+          if [ ! -d "$SOURCE_DIR" ]; then
+            git clone https://github.com/${{ github.repository }}.git $SOURCE_DIR
+          fi
+
+          cd $SOURCE_DIR
+          git fetch origin main
+          git reset --hard origin/main
+
+          # 환경변수 설정
+          export FRONTEND_URL=https://uscola.hip-studio.com
+          export SUPABASE_URL='${{ secrets.SUPABASE_URL }}'
+          export SUPABASE_SERVICE_ROLE_KEY='${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}'
+          export SUPABASE_ANON_KEY='${{ secrets.SUPABASE_ANON_KEY }}'
+          export VITE_SUPABASE_URL='${{ secrets.SUPABASE_URL }}'
+          export VITE_SUPABASE_ANON_KEY='${{ secrets.SUPABASE_ANON_KEY }}'
+
+          # 빌드 + 실행
+          cd deploy
+          docker compose -f docker-compose.build.yml build
+          docker compose -f docker-compose.build.yml down --remove-orphans || true
+          docker compose -f docker-compose.build.yml up -d
+
+          # 헬스체크
+          echo "Waiting for services..."
+          timeout 60s bash -c 'until curl -sf http://localhost:4000/api/test; do sleep 5; done'
+
+          echo "✅ Deployment completed!"
+          docker compose -f docker-compose.build.yml ps
