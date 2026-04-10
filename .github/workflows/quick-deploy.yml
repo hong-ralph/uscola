@@ -1,6 +1,8 @@
 name: Quick Deploy (Native Build on Server)
 
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
