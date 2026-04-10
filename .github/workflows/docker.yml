@@ -124,7 +124,11 @@ jobs:
         echo "Using frontend image: $FRONTEND_IMAGE"
         
         # Start services
-        BACKEND_IMAGE=$BACKEND_IMAGE FRONTEND_IMAGE=$FRONTEND_IMAGE docker compose up -d
+        BACKEND_IMAGE=$BACKEND_IMAGE FRONTEND_IMAGE=$FRONTEND_IMAGE \
+        SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
+        SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }} \
+        SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} \
+        docker compose up -d
         
         # Wait for services
         echo "Waiting for services to be ready..."
@@ -175,4 +179,7 @@ jobs:
           export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
           export GITHUB_ACTOR=${{ github.actor }}
           export GITHUB_REPOSITORY=${{ github.repository }}
+          export SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          export SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          export SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
           ./deploy.sh
