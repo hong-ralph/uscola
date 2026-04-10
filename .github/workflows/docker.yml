@@ -71,7 +71,9 @@ jobs:
         cache-to: type=gha,mode=max
         platforms: linux/amd64,linux/arm64
         build-args: |
-          ${{ matrix.service == 'frontend' && format('VITE_API_URL=http://localhost:3000\nVITE_SUPABASE_URL={0}\nVITE_SUPABASE_ANON_KEY={1}', secrets.SUPABASE_URL, secrets.SUPABASE_ANON_KEY) || '' }}
+          VITE_API_URL=http://localhost:3000
+          VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
         provenance: false
 
     # Retry build if first attempt failed
@@ -89,7 +91,9 @@ jobs:
         cache-to: type=gha,mode=max
         platforms: linux/amd64,linux/arm64
         build-args: |
-          ${{ matrix.service == 'frontend' && format('VITE_API_URL=http://localhost:3000\nVITE_SUPABASE_URL={0}\nVITE_SUPABASE_ANON_KEY={1}', secrets.SUPABASE_URL, secrets.SUPABASE_ANON_KEY) || '' }}
+          VITE_API_URL=http://localhost:3000
+          VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
         provenance: false
 
   integration-test:
