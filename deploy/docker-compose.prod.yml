@@ -1,9 +1,5 @@
-version: '3.8'
-
 services:
   backend:
-    # ghcr.io에서 이미지를 가져옵니다.
-    # 이미지 경로를 소문자로 변경합니다. (ralph-hong)
     image: ghcr.io/hong-ralph/uscola/backend:latest
     expose:
       - "3000"
@@ -19,8 +15,6 @@ services:
       - uscola-network
 
   frontend:
-    # ghcr.io에서 이미지를 가져옵니다.
-    # 이미지 경로를 소문자로 변경합니다. (ralph-hong)
     image: ghcr.io/hong-ralph/uscola/frontend:latest
     ports:
       - "4000:80"
