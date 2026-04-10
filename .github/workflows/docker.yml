@@ -71,7 +71,7 @@ jobs:
         cache-to: type=gha,mode=max
         platforms: linux/amd64,linux/arm64
         build-args: |
-          VITE_API_URL=http://localhost:3000
+          VITE_API_URL=/api
           VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
         provenance: false
@@ -91,7 +91,7 @@ jobs:
         cache-to: type=gha,mode=max
         platforms: linux/amd64,linux/arm64
         build-args: |
-          VITE_API_URL=http://localhost:3000
+          VITE_API_URL=/api
           VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
         provenance: false
